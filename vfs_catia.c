@@ -199,12 +199,12 @@ static bool init_mappings(connection_struct *conn,
 	/* see if we have a global setting */
 	if (!global) {
 		/* global setting */
-		mappings = lp_parm_string_list(-1, "catia", "mappings", NULL);
+		mappings = lp_parm_string_list(-1, "catia_dot", "mappings", NULL);
 		global = add_srt(GLOBAL_SNUM, mappings);
 	}
 
 	/* no global setting - what about share level ? */
-	mappings = lp_parm_string_list(SNUM(conn), "catia", "mappings", NULL);
+	mappings = lp_parm_string_list(SNUM(conn), "catia_dot", "mappings", NULL);
 	share_level = add_srt(SNUM(conn), mappings);
 
 	if (share_level->mappings) {
@@ -256,6 +256,17 @@ static NTSTATUS catia_string_replace_allocate(connection_struct *conn,
 			continue;
 
 		*ptr = map->entry[T_OFFSET((*ptr))][direction];
+	}
+
+	#define LAST_PERIOD_REPLACE  0x00b7
+	if( !(ISDOT(tmpbuf) || ISDOTDOT(tmpbuf)) ) {
+		ptr --;
+		if( direction == vfs_translate_to_unix ) {
+			if( *ptr == LAST_PERIOD_REPLACE ) *ptr = '.';
+		}
+		else { /* direction == vfs_translate_to_windows */
+			if( *ptr == '.' ) *ptr = LAST_PERIOD_REPLACE;
+		}
 	}
 
 	if ((pull_ucs2_talloc(ctx, mapped_name, tmpbuf,
@@ -938,12 +949,12 @@ NTSTATUS vfs_catia_init(void)
 {
 	NTSTATUS ret;
 
-        ret = smb_register_vfs(SMB_VFS_INTERFACE_VERSION, "catia",
+        ret = smb_register_vfs(SMB_VFS_INTERFACE_VERSION, "catia_dot",
 				&vfs_catia_fns);
 	if (!NT_STATUS_IS_OK(ret))
 		return ret;
 
-	vfs_catia_debug_level = debug_add_class("catia");
+	vfs_catia_debug_level = debug_add_class("catia_dot");
 	if (vfs_catia_debug_level == -1) {
 		vfs_catia_debug_level = DBGC_VFS;
 		DEBUG(0, ("vfs_catia: Couldn't register custom debugging "
