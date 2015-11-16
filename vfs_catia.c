@@ -50,6 +50,7 @@ struct share_mapping_entry {
 	int snum;
 	struct share_mapping_entry *next;
 	struct char_mappings **mappings;
+	smb_ucs2_t last_period;
 };
 
 struct share_mapping_entry *srt_head = NULL;
@@ -123,7 +124,7 @@ static struct share_mapping_entry *get_srt(connection_struct *conn,
 	return share;
 }
 
-static struct share_mapping_entry *add_srt(int snum, const char **mappings)
+static struct share_mapping_entry *add_srt(int snum, const char **mappings, smb_ucs2_t last_period)
 {
 
 	char *tmp;
@@ -176,6 +177,8 @@ static struct share_mapping_entry *add_srt(int snum, const char **mappings)
 		}
 	}
 
+	ret->last_period = last_period;
+
 	ret->next = srt_head;
 	srt_head = ret;
 
@@ -186,6 +189,7 @@ static bool init_mappings(connection_struct *conn,
 			  struct share_mapping_entry **selected_out)
 {
 	const char **mappings = NULL;
+	smb_ucs2_t last_period = 0x0000;
 	struct share_mapping_entry *share_level = NULL;
 	struct share_mapping_entry *global = NULL;
 
@@ -200,12 +204,14 @@ static bool init_mappings(connection_struct *conn,
 	if (!global) {
 		/* global setting */
 		mappings = lp_parm_string_list(-1, "catia_dot", "mappings", NULL);
-		global = add_srt(GLOBAL_SNUM, mappings);
+		last_period = lp_parm_ulong(-1, "catia_dot", "last_period", 0x0000);
+		global = add_srt(GLOBAL_SNUM, mappings, last_period);
 	}
 
 	/* no global setting - what about share level ? */
 	mappings = lp_parm_string_list(SNUM(conn), "catia_dot", "mappings", NULL);
-	share_level = add_srt(SNUM(conn), mappings);
+	last_period = lp_parm_ulong(SNUM(conn), "catia_dot", "last_period", 0x0000);
+	share_level = add_srt(SNUM(conn), mappings, last_period);
 
 	if (share_level->mappings) {
 		(*selected_out) = share_level;
@@ -258,14 +264,13 @@ static NTSTATUS catia_string_replace_allocate(connection_struct *conn,
 		*ptr = map->entry[T_OFFSET((*ptr))][direction];
 	}
 
-	#define LAST_PERIOD_REPLACE  0x00b7
-	if( !(ISDOT(tmpbuf) || ISDOTDOT(tmpbuf)) ) {
+	if( selected->last_period && !(ISDOT(tmpbuf) || ISDOTDOT(tmpbuf)) ) {
 		ptr --;
 		if( direction == vfs_translate_to_unix ) {
-			if( *ptr == LAST_PERIOD_REPLACE ) *ptr = '.';
+			if( *ptr == selected->last_period ) *ptr = '.';
 		}
 		else { /* direction == vfs_translate_to_windows */
-			if( *ptr == '.' ) *ptr = LAST_PERIOD_REPLACE;
+			if( *ptr == '.' ) *ptr = selected->last_period;
 		}
 	}
 
