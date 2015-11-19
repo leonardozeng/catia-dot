@@ -12,9 +12,10 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  make clean   - cleanup"
-	@echo "  make patch   - create patch"
-	@echo "  make source  - download source, apply patch to vfs_catia.c"
+	@echo "  make patch   - create vfs_catia_dot.patch"
+	@echo "  make source  - download source, apply patches"
 	@echo "  make build   - compile binaries"
+	@echo "  make rebuild - recompile binaries"
 	@echo "  make package - build package using checkinstall"
 	@echo ""
 	@echo "  Samba version: $(VERSION), $(DEB_BUILD_ARCH)"
@@ -30,14 +31,18 @@ patch:
 source: patch
 	[ -d "$(PWD)/build_dir" ] || mkdir -m 0755 "$(PWD)/build_dir"
 	( cd "$(PWD)/build_dir" && apt-get source samba=$(VERSION) )
-	patch -N -p1 "$(PWD)/build_dir/$(SAMBADIR)/source3/modules/vfs_catia.c" -i "$(PWD)/vfs_catia_dot.patch" || true
+	patch -N "$(PWD)/build_dir/$(SAMBADIR)/source3/modules/vfs_catia.c" -i "$(PWD)/vfs_catia_dot.patch" || true
+	patch -N "$(PWD)/build_dir/$(SAMBADIR)/debian/rules" -i "$(PWD)/rules.patch" || true
 
 build: source
 	( cd "$(PWD)/build_dir/$(SAMBADIR)" && fakeroot debian/rules binary )
 
+rebuild: source
+	( cd "$(PWD)/build_dir/$(SAMBADIR)" && fakeroot debian/rules clean ; fakeroot debian/rules binary )
+
 package: build
 	fakeroot checkinstall -D -y \
-		--install=no --fstrans=yes --requires=samba --nodoc --deldesc=yes --backup=no \
+		--install=no --fstrans=yes --requires=samba --nodoc --backup=no \
 		--pkgname=vfs-catia-dot --pkgversion=$(VERSION) --pkgarch $(DEB_BUILD_ARCH)
 
 install:

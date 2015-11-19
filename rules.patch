@@ -1,0 +1,6 @@
+--- a/debian/rules
++++ b/debian/rules
+@@ -34,2 +34,3 @@ endif
+ conf_args = \
++		$(WAF_CONF_ARGS) \
+ 		--prefix=/usr \
