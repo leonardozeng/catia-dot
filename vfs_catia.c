@@ -236,6 +236,7 @@ static NTSTATUS catia_string_replace_allocate(connection_struct *conn,
 	struct char_mappings *map = NULL;
 	size_t converted_size;
 	TALLOC_CTX *ctx = talloc_tos();
+	smb_ucs2_t last_from, last_to;
 
 	if (!init_mappings(conn, &selected)) {
 		/* No mappings found. Just use the old name */
@@ -265,12 +266,23 @@ static NTSTATUS catia_string_replace_allocate(connection_struct *conn,
 	}
 
 	if( selected->last_period && !(ISDOT(tmpbuf) || ISDOTDOT(tmpbuf)) ) {
-		ptr --;
 		if( direction == vfs_translate_to_unix ) {
-			if( *ptr == selected->last_period ) *ptr = '.';
+			last_from = selected->last_period;
+			last_to = '.';
 		}
 		else { /* direction == vfs_translate_to_windows */
-			if( *ptr == '.' ) *ptr = selected->last_period;
+			last_from = '.';
+			last_to = selected->last_period;
+		}
+		ptr = tmpbuf;
+		while (1) {
+			if (*(ptr+1) == 0 || *(ptr+1) == '/') {
+				if (*ptr == last_from)
+					*ptr = last_to;
+				if (*(ptr+1) == 0)
+					break;
+			}
+			ptr++;
 		}
 	}
 
