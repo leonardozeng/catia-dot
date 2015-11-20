@@ -41,9 +41,13 @@ rebuild: source
 	( cd "$(PWD)/build_dir/$(SAMBADIR)" && fakeroot debian/rules clean ; fakeroot debian/rules binary )
 
 package: build
-	fakeroot checkinstall -D -y \
-		--install=no --fstrans=yes --requires=samba --nodoc --backup=no \
-		--pkgname=vfs-catia-dot --pkgversion=$(VERSION) --pkgarch $(DEB_BUILD_ARCH)
+	( cd "$(PWD)" && \
+		VER_A=$$(echo '$(VERSION)' | perl -pe 's/^([\d\:]+)\.(\d+)\..*$$/$$1.".".($$2+0).".0"/e') && \
+		VER_B=$$(echo '$(VERSION)' | perl -pe 's/^([\d\:]+)\.(\d+)\..*$$/$$1.".".($$2+1).".0"/e') && \
+		fakeroot checkinstall -D -y \
+			--install=no --fstrans=yes --nodoc --backup=no \
+			--requires="samba-libs \(\>= $${VER_A}\), samba-libs \(\<\< $${VER_B}\)" \
+			--pkgname=vfs-catia-dot --pkgversion=$(VERSION) --pkgarch=$(DEB_BUILD_ARCH) --pkggroup=net )
 
 install:
 	install -d -m 0755 "/usr/lib/$(DEB_HOST_MULTIARCH)/samba/vfs"
