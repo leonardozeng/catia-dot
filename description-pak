@@ -1,3 +1,4 @@
 catia_dot VFS module for Samba.
 This package contains patched version of Catia VFS from samba-vfs-modules.
-It adds the ability to map the last 'period' character in filenames.
+It provides the ability to map a 'period' and 'space' if they appear as the
+final character of a filename.

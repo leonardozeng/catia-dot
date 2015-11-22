@@ -46,11 +46,16 @@ struct char_mappings {
 	smb_ucs2_t entry[MAP_SIZE][2];
 };
 
+struct last_forbidden {
+	smb_ucs2_t period;
+	smb_ucs2_t space;
+};
+
 struct share_mapping_entry {
 	int snum;
 	struct share_mapping_entry *next;
 	struct char_mappings **mappings;
-	smb_ucs2_t last_period;
+	struct last_forbidden last;
 };
 
 struct share_mapping_entry *srt_head = NULL;
@@ -124,7 +129,7 @@ static struct share_mapping_entry *get_srt(connection_struct *conn,
 	return share;
 }
 
-static struct share_mapping_entry *add_srt(int snum, const char **mappings, smb_ucs2_t last_period)
+static struct share_mapping_entry *add_srt(int snum, const char **mappings, struct last_forbidden last)
 {
 
 	char *tmp;
@@ -177,7 +182,7 @@ static struct share_mapping_entry *add_srt(int snum, const char **mappings, smb_
 		}
 	}
 
-	ret->last_period = last_period;
+	ret->last = last;
 
 	ret->next = srt_head;
 	srt_head = ret;
@@ -189,7 +194,7 @@ static bool init_mappings(connection_struct *conn,
 			  struct share_mapping_entry **selected_out)
 {
 	const char **mappings = NULL;
-	smb_ucs2_t last_period = 0x0000;
+	struct last_forbidden last;
 	struct share_mapping_entry *share_level = NULL;
 	struct share_mapping_entry *global = NULL;
 
@@ -204,14 +209,16 @@ static bool init_mappings(connection_struct *conn,
 	if (!global) {
 		/* global setting */
 		mappings = lp_parm_string_list(-1, "catia_dot", "mappings", NULL);
-		last_period = lp_parm_ulong(-1, "catia_dot", "last_period", 0x0000);
-		global = add_srt(GLOBAL_SNUM, mappings, last_period);
+		last.period = lp_parm_ulong(-1, "catia_dot", "last_period", 0x0000);
+		last.space = lp_parm_ulong(-1, "catia_dot", "last_space", 0x0000);
+		global = add_srt(GLOBAL_SNUM, mappings, last);
 	}
 
 	/* no global setting - what about share level ? */
 	mappings = lp_parm_string_list(SNUM(conn), "catia_dot", "mappings", NULL);
-	last_period = lp_parm_ulong(SNUM(conn), "catia_dot", "last_period", 0x0000);
-	share_level = add_srt(SNUM(conn), mappings, last_period);
+	last.period = lp_parm_ulong(SNUM(conn), "catia_dot", "last_period", 0x0000);
+	last.space = lp_parm_ulong(SNUM(conn), "catia_dot", "last_space", 0x0000);
+	share_level = add_srt(SNUM(conn), mappings, last);
 
 	if (share_level->mappings) {
 		(*selected_out) = share_level;
@@ -236,7 +243,7 @@ static NTSTATUS catia_string_replace_allocate(connection_struct *conn,
 	struct char_mappings *map = NULL;
 	size_t converted_size;
 	TALLOC_CTX *ctx = talloc_tos();
-	smb_ucs2_t last_from, last_to;
+	struct last_forbidden last_from, last_to;
 
 	if (!init_mappings(conn, &selected)) {
 		/* No mappings found. Just use the old name */
@@ -265,22 +272,25 @@ static NTSTATUS catia_string_replace_allocate(connection_struct *conn,
 		*ptr = map->entry[T_OFFSET((*ptr))][direction];
 	}
 
-	if( selected->last_period && !(ISDOT(tmpbuf) || ISDOTDOT(tmpbuf)) ) {
+	if( (selected->last.period || selected->last.space)
+	&& !(ISDOT(tmpbuf) || ISDOTDOT(tmpbuf)) ) {
 		if( direction == vfs_translate_to_unix ) {
-			last_from = selected->last_period;
-			last_to = '.';
+			last_from = selected->last;
+			last_to.period = '.';
+			last_to.space = ' ';
 		}
 		else { /* direction == vfs_translate_to_windows */
-			last_from = '.';
-			last_to = selected->last_period;
+			last_from.period = (selected->last.period ? '.' : 0);
+			last_from.space = (selected->last.space ? ' ' : 0);
+			last_to = selected->last;
 		}
 		ptr = tmpbuf;
-		while (1) {
+		while (*ptr) {
 			if (*(ptr+1) == 0 || *(ptr+1) == '/') {
-				if (*ptr == last_from)
-					*ptr = last_to;
-				if (*(ptr+1) == 0)
-					break;
+				if (*ptr == last_from.period)
+					*ptr = last_to.period;
+				else if (*ptr == last_from.space)
+					*ptr = last_to.space;
 			}
 			ptr++;
 		}
