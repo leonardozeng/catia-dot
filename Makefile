@@ -2,7 +2,7 @@
 
 PWD := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 VERSION := $(shell apt-cache policy samba | grep -Po '(?<=: )[^()]+' | head -1 )
-SAMBADIR := "samba-$(shell echo '$(VERSION)' | grep -Po '(?<=:).+(?=-)' )"
+SAMBADIR := samba-$(shell echo '$(VERSION)' | grep -Po '(?<=:).+(?=-)' )
 DEB_BUILD_ARCH := $(shell dpkg-architecture -qDEB_BUILD_ARCH )
 DEB_HOST_MULTIARCH := $(shell dpkg-architecture -qDEB_HOST_MULTIARCH )
 
@@ -35,10 +35,10 @@ source: patch
 	patch -N "$(PWD)/build_dir/$(SAMBADIR)/debian/rules" -i "$(PWD)/rules.patch" || true
 
 build: source
-	( cd "$(PWD)/build_dir/$(SAMBADIR)" && fakeroot debian/rules binary )
+	( cd "$(PWD)/build_dir/$(SAMBADIR)" && fakeroot ./debian/rules build )
 
 rebuild: source
-	( cd "$(PWD)/build_dir/$(SAMBADIR)" && fakeroot debian/rules clean ; fakeroot debian/rules binary )
+	( cd "$(PWD)/build_dir/$(SAMBADIR)" && fakeroot ./debian/rules clean ; fakeroot debian/rules build )
 
 package: build
 	( cd "$(PWD)" && \
@@ -50,6 +50,7 @@ package: build
 			--pkgname=vfs-catia-dot --pkgversion=$(VERSION) --pkgarch=$(DEB_BUILD_ARCH) --pkggroup=net )
 
 install:
+	strip "$(PWD)/build_dir/$(SAMBADIR)/bin/default/source3/modules/libvfs-catia.so"
 	install -d -m 0755 "/usr/lib/$(DEB_HOST_MULTIARCH)/samba/vfs"
-	install -m 0644 "$(PWD)/build_dir/$(SAMBADIR)/debian/samba-vfs-modules/usr/lib/$(DEB_HOST_MULTIARCH)/samba/vfs/catia.so" \
+	install -m 0644 "$(PWD)/build_dir/$(SAMBADIR)/bin/default/source3/modules/libvfs-catia.so" \
 		"/usr/lib/$(DEB_HOST_MULTIARCH)/samba/vfs/catia_dot.so"
