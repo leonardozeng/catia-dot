@@ -50,7 +50,7 @@ package: build
 			--pkgname=vfs-catia-dot --pkgversion=$(VERSION) --pkgarch=$(DEB_BUILD_ARCH) --pkggroup=net )
 
 install:
-	strip "$(PWD)/build_dir/$(SAMBADIR)/bin/default/source3/modules/libvfs-catia.so"
+	strip "$(PWD)/build_dir/$(SAMBADIR)/bin/default/source3/modules/libvfs_module_catia.so"
 	install -d -m 0755 "/usr/lib/$(DEB_HOST_MULTIARCH)/samba/vfs"
-	install -m 0644 "$(PWD)/build_dir/$(SAMBADIR)/bin/default/source3/modules/libvfs-catia.so" \
+	install -m 0644 "$(PWD)/build_dir/$(SAMBADIR)/bin/default/source3/modules/libvfs_module_catia.so" \
 		"/usr/lib/$(DEB_HOST_MULTIARCH)/samba/vfs/catia_dot.so"

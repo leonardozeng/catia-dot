@@ -1,12 +1,12 @@
 --- a/debian/rules
 +++ b/debian/rules
-@@ -70,3 +70,3 @@
+@@ -71,3 +71,3 @@
  	$(shell dpkg-buildflags --export=configure) $(WAF) configure \
 -		$(conf_args)
 +		$(conf_args) $(WAF_CONF_ARGS)
  
-@@ -83,3 +83,3 @@
+@@ -84,3 +84,3 @@
  override_dh_auto_build:
--	DESTDIR="$(DESTDIR)" $(WAF)
-+	DESTDIR="$(DESTDIR)" $(WAF) --targets=vfs_catia
+-	ulimit -s unlimited; DESTDIR="$(DESTDIR)" $(WAF)
++	ulimit -s unlimited; DESTDIR="$(DESTDIR)" $(WAF) --targets=vfs_catia
  
